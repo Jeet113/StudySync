@@ -11,8 +11,8 @@ import {
   initialMedications,
   initialTasks,
   initialFocusData
-} from '../data/mockData';
-import { storageMigrations } from '../utils/storageMigrations';
+} from '../data/mockData.js';
+import { storageMigrations } from '../utils/storageMigrations.js';
 
 const KEYS = {
   USER: 'studysync_user',
@@ -34,8 +34,9 @@ const KEYS = {
   REMEMBERED_STUDENT_ID: 'studysync_remembered_student_id',
   MANUAL_SEMESTERS_ARCHIVE: 'studysync_manual_semesters_archive',
   ARCHIVED_ROUTINE_EVENTS: 'studysync_archived_routine_events',
+  ROUTINE_IMPORTS: 'studysync_routine_imports',
   SIDEBAR_PREFERENCES: 'studysync_sidebar_preferences',
-  STORAGE_VERSION: 'studysync_storage_v2_2'
+  STORAGE_VERSION: 'studysync_storage_v2_3'
 };
 
 export const storageService = {
@@ -146,6 +147,7 @@ export const storageService = {
     if (!localStorage.getItem(KEYS.TASKS)) storageService.set(KEYS.TASKS, initialTasks);
     if (!localStorage.getItem(KEYS.FOCUS)) storageService.set(KEYS.FOCUS, initialFocusData);
     if (!localStorage.getItem(KEYS.DISMISSED_ALERTS)) storageService.set(KEYS.DISMISSED_ALERTS, []);
+    if (!localStorage.getItem(KEYS.ROUTINE_IMPORTS)) storageService.set(KEYS.ROUTINE_IMPORTS, []);
     if (!localStorage.getItem(KEYS.SETTINGS)) storageService.set(KEYS.SETTINGS, {
       attendanceRules: { defaultAllowedRatio: 1.0 }, // 1 miss per credit
       gradingScale: [

@@ -21,6 +21,10 @@ import { Badge } from '../components/common/Badge';
 import { Tabs } from '../components/common/Tabs';
 import { routineService, COURSE_COLOR_PRESETS } from '../services/routineService';
 import { combineLocalDateTime } from '../utils/assessmentUtils';
+import { RoutineImportButton } from '../features/routine/components/RoutineImportButton';
+import { RoutineUploadDialog } from '../features/routine/components/RoutineUploadDialog';
+import { routineImportService } from '../features/routine/services/routineImportService';
+import { deriveSectionFromGroup } from '../features/routine/utils/groupSectionUtils';
 
 const ASSESSMENT_COLORS = {
   CT: { bg: '#F59E0B', border: '#D97706', label: 'Class Test' },
@@ -31,7 +35,7 @@ const ASSESSMENT_COLORS = {
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
 
 export const RoutinePage = () => {
-  const { routines, addRoutine, updateRoutine, deleteRoutine, assessments, archivedRoutineEvents } = useData();
+  const { routines, addRoutine, updateRoutine, deleteRoutine, assessments, archivedRoutineEvents, courses, refreshData } = useData();
 
   const [activeTab, setActiveTab] = useState('weekly');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -39,6 +43,7 @@ export const RoutinePage = () => {
   const [conflictWarning, setConflictWarning] = useState(null);
   const [showArchivedHistory, setShowArchivedHistory] = useState(true);
   const [selectedArchivedEvent, setSelectedArchivedEvent] = useState(null);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const todayDayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
@@ -47,12 +52,19 @@ export const RoutinePage = () => {
     courseId: 'CSE-311',
     courseTitle: 'Database Management Systems',
     faculty: 'Dr. Al-Mamun',
-    classType: 'lecture',
+    teacherName: 'Dr. Al-Mamun',
+    credit: 3,
+    courseType: 'theory',
+    classType: 'theory',
     dayOfWeek: 'Sunday',
     startTime: '08:00',
     endTime: '08:50',
     room: 'Room 304',
     building: 'Academic Building 2',
+    group: '',
+    section: '',
+    effectiveStartDate: '',
+    effectiveEndDate: '',
     color: '#4F46E5',
     repeatWeekly: true,
     notes: ''
@@ -102,6 +114,8 @@ export const RoutinePage = () => {
         daysOfWeek: [days.indexOf(r.dayOfWeek)],
         startTime: r.startTime,
         endTime: r.endTime,
+        startRecur: r.effectiveStartDate || undefined,
+        endRecur: r.effectiveEndDate ? new Date(new Date(`${r.effectiveEndDate}T12:00:00`).getTime() + 86400000).toISOString().split('T')[0] : undefined,
         backgroundColor: r.color || '#4F46E5',
         borderColor: r.color || '#4F46E5',
         extendedProps: { ...r, eventType: 'routine' }
@@ -152,12 +166,19 @@ export const RoutinePage = () => {
       courseId: 'CSE-311',
       courseTitle: 'Database Management Systems',
       faculty: 'Dr. Al-Mamun',
-      classType: 'lecture',
+      teacherName: 'Dr. Al-Mamun',
+      credit: 3,
+      courseType: 'theory',
+      classType: 'theory',
       dayOfWeek: 'Sunday',
       startTime: '09:40',
       endTime: '10:30',
       room: 'Room 304',
       building: 'Academic Building 2',
+      group: '',
+      section: '',
+      effectiveStartDate: '',
+      effectiveEndDate: '',
       color: routineService.getColorForCourse('CSE-311'),
       repeatWeekly: true,
       notes: ''
@@ -168,7 +189,18 @@ export const RoutinePage = () => {
 
   const handleOpenEdit = (routine) => {
     setEditingRoutine(routine);
-    setForm(routine);
+    setForm({
+      ...routine,
+      teacherName: routine.teacherName || routine.faculty || '',
+      faculty: routine.teacherName || routine.faculty || '',
+      credit: routine.credit || 0,
+      courseType: routine.courseType || (routine.classType === 'lecture' ? 'theory' : routine.classType) || 'theory',
+      classType: routine.classType === 'lecture' ? 'theory' : routine.classType,
+      group: routine.group || '',
+      section: routine.section || '',
+      effectiveStartDate: routine.effectiveStartDate || '',
+      effectiveEndDate: routine.effectiveEndDate || ''
+    });
     setConflictWarning(null);
     setIsEditorOpen(true);
   };
@@ -179,6 +211,9 @@ export const RoutinePage = () => {
     if (key === 'courseId') {
       updated.color = routineService.getColorForCourse(val);
     }
+    if (key === 'group') updated.section = deriveSectionFromGroup(val);
+    if (key === 'teacherName') updated.faculty = val;
+    if (key === 'classType') updated.courseType = val;
 
     setForm(updated);
 
@@ -196,6 +231,14 @@ export const RoutinePage = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (form.endTime <= form.startTime) {
+      setConflictWarning('End time must be later than start time.');
+      return;
+    }
+    if (form.effectiveStartDate && form.effectiveEndDate && form.effectiveEndDate < form.effectiveStartDate) {
+      setConflictWarning('Effective end date must be on or after the start date.');
+      return;
+    }
     if (form.courseId && form.color) {
       routineService.setCourseColor(form.courseId, form.color);
     }
@@ -208,11 +251,20 @@ export const RoutinePage = () => {
   };
 
   const handleDuplicate = (routine) => {
+    const { id, importId, createdAt, updatedAt, ...copy } = routine;
     addRoutine({
-      ...routine,
-      id: undefined,
+      ...copy,
+      source: 'manual',
+      manuallyEdited: false,
       courseTitle: `${routine.courseTitle} (Copy)`,
     });
+  };
+
+  const lastImport = routineImportService.getLastImport();
+  const undoLastImport = () => {
+    if (!lastImport || !window.confirm(`Undo routine import from ${lastImport.sourceFile?.name || 'uploaded file'}? Only records changed by that import will be restored.`)) return;
+    routineImportService.undoLastImport();
+    refreshData();
   };
 
   const renderAssessmentBadge = (ast) => {
@@ -243,7 +295,7 @@ export const RoutinePage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center space-x-2">
             <CalendarIcon className="w-6 h-6 text-brand-500" />
@@ -254,7 +306,7 @@ export const RoutinePage = () => {
           </p>
         </div>
 
-        <div className="flex flex-col xs:flex-row items-stretch sm:items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <Tabs
             tabs={[
               { id: 'weekly', label: 'Weekly Routine' },
@@ -263,6 +315,10 @@ export const RoutinePage = () => {
             activeTab={activeTab}
             onChange={setActiveTab}
           />
+
+          <RoutineImportButton onClick={() => setIsImportOpen(true)} />
+
+          {lastImport && <button type="button" onClick={undoLastImport} className="min-h-11 px-4 py-2 text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl">Undo last import</button>}
 
           <button
             onClick={handleOpenAdd}
@@ -314,14 +370,14 @@ export const RoutinePage = () => {
                             <span className="text-[10px] font-bold uppercase tracking-wider bg-black/20 px-2 py-0.5 rounded-md">
                               {rt.classType}
                             </span>
-                            <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1 transition-opacity bg-black/30 p-1 rounded-lg">
-                              <button onClick={() => handleOpenEdit(rt)} title="Edit">
+                            <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 flex items-center space-x-1 transition-opacity bg-black/30 p-1 rounded-lg">
+                              <button type="button" onClick={() => handleOpenEdit(rt)} aria-label={`Edit ${rt.courseId}`} title="Edit">
                                 <Edit className="w-3 h-3 text-white" />
                               </button>
-                              <button onClick={() => handleDuplicate(rt)} title="Duplicate">
+                              <button type="button" onClick={() => handleDuplicate(rt)} aria-label={`Duplicate ${rt.courseId}`} title="Duplicate">
                                 <Copy className="w-3 h-3 text-white" />
                               </button>
-                              <button onClick={() => deleteRoutine(rt.id)} title="Delete">
+                              <button type="button" onClick={() => deleteRoutine(rt.id)} aria-label={`Delete ${rt.courseId}`} title="Delete">
                                 <Trash2 className="w-3 h-3 text-rose-300" />
                               </button>
                             </div>
@@ -329,6 +385,7 @@ export const RoutinePage = () => {
 
                           <h4 className="text-xs font-bold mt-2 leading-tight">{rt.courseId}</h4>
                           <p className="text-[11px] opacity-90 truncate">{rt.courseTitle}</p>
+                          {rt.source === 'ocr-import' && <p className="mt-1 text-[9px] font-bold uppercase tracking-wide opacity-90">Imported{rt.manuallyEdited ? ' · manually edited' : ''}</p>}
 
                           <div className="mt-2 pt-2 border-t border-white/20 text-[10px] space-y-0.5 opacity-90">
                             <div className="flex items-center space-x-1">
@@ -341,6 +398,7 @@ export const RoutinePage = () => {
                                 <span className="truncate">{rt.faculty}</span>
                               </div>
                             )}
+                            {(rt.group || rt.section) && <div className="truncate">{rt.group ? `Group ${rt.group}` : `Section ${rt.section}`}</div>}
                           </div>
                         </div>
                       ))}
@@ -437,8 +495,18 @@ export const RoutinePage = () => {
         </div>
       )}
 
+      <RoutineUploadDialog
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        routines={routines}
+        courses={courses}
+        onDataChanged={refreshData}
+        onManualEntry={handleOpenAdd}
+      />
+
       <Modal isOpen={isEditorOpen} onClose={() => setIsEditorOpen(false)} title={editingRoutine ? 'Edit Class Routine' : 'Add New Class Routine'}>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {editingRoutine?.source === 'ocr-import' && <p className="text-xs font-bold text-cyan-600 dark:text-cyan-400">Imported{editingRoutine.manuallyEdited ? ' · manually edited' : ''}. Saving changes keeps this class linked to its import history.</p>}
           {conflictWarning && (
             <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs font-semibold text-amber-800 dark:text-amber-200 flex items-center space-x-2">
               <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
@@ -448,8 +516,9 @@ export const RoutinePage = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Course Code</label>
+              <label htmlFor="routine-course-id" className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Course Code</label>
               <input
+                id="routine-course-id"
                 type="text"
                 value={form.courseId}
                 onChange={(e) => handleFormChange('courseId', e.target.value)}
@@ -459,8 +528,9 @@ export const RoutinePage = () => {
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Course Title</label>
+              <label htmlFor="routine-course-title" className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Course Title</label>
               <input
+                id="routine-course-title"
                 type="text"
                 value={form.courseTitle}
                 onChange={(e) => handleFormChange('courseTitle', e.target.value)}
@@ -468,6 +538,21 @@ export const RoutinePage = () => {
                 className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
                 required
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label htmlFor="routine-credit" className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Credit</label>
+              <input id="routine-credit" type="number" min="0" step="0.25" value={form.credit} onChange={(e) => handleFormChange('credit', Number(e.target.value))} className="w-full min-h-11 px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none" />
+            </div>
+            <div>
+              <label htmlFor="routine-group" className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Group</label>
+              <input id="routine-group" value={form.group} onChange={(e) => handleFormChange('group', e.target.value.toUpperCase())} placeholder="e.g. B2" className="w-full min-h-11 px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none" />
+            </div>
+            <div>
+              <label htmlFor="routine-section" className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Section</label>
+              <input id="routine-section" value={form.section} onChange={(e) => handleFormChange('section', e.target.value.toUpperCase())} placeholder="e.g. B" className="w-full min-h-11 px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none" />
             </div>
           </div>
 
@@ -500,8 +585,9 @@ export const RoutinePage = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Day of Week</label>
+              <label htmlFor="routine-day" className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Day of Week</label>
               <select
+                id="routine-day"
                 value={form.dayOfWeek}
                 onChange={(e) => handleFormChange('dayOfWeek', e.target.value)}
                 className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
@@ -510,8 +596,9 @@ export const RoutinePage = () => {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Start Time</label>
+              <label htmlFor="routine-start-time" className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Start Time</label>
               <input
+                id="routine-start-time"
                 type="time"
                 value={form.startTime}
                 onChange={(e) => handleFormChange('startTime', e.target.value)}
@@ -520,8 +607,9 @@ export const RoutinePage = () => {
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">End Time</label>
+              <label htmlFor="routine-end-time" className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">End Time</label>
               <input
+                id="routine-end-time"
                 type="time"
                 value={form.endTime}
                 onChange={(e) => handleFormChange('endTime', e.target.value)}
@@ -533,21 +621,23 @@ export const RoutinePage = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Class Type</label>
+              <label htmlFor="routine-class-type" className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Class Type</label>
               <select
+                id="routine-class-type"
                 value={form.classType}
                 onChange={(e) => handleFormChange('classType', e.target.value)}
                 className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
               >
-                <option value="lecture">Lecture</option>
+                <option value="theory">Theory</option>
                 <option value="lab">Lab</option>
+                <option value="sessional">Sessional</option>
                 <option value="tutorial">Tutorial</option>
-                <option value="other">Other</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Room No</label>
+              <label htmlFor="routine-room" className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Room No</label>
               <input
+                id="routine-room"
                 type="text"
                 value={form.room}
                 onChange={(e) => handleFormChange('room', e.target.value)}
@@ -556,8 +646,9 @@ export const RoutinePage = () => {
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Building</label>
+              <label htmlFor="routine-building" className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Building</label>
               <input
+                id="routine-building"
                 type="text"
                 value={form.building}
                 onChange={(e) => handleFormChange('building', e.target.value)}
@@ -568,14 +659,20 @@ export const RoutinePage = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Faculty / Teacher</label>
+            <label htmlFor="routine-teacher" className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Faculty / Teacher</label>
             <input
+              id="routine-teacher"
               type="text"
-              value={form.faculty}
-              onChange={(e) => handleFormChange('faculty', e.target.value)}
+              value={form.teacherName}
+              onChange={(e) => handleFormChange('teacherName', e.target.value)}
               placeholder="Dr. Al-Mamun"
               className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
             />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div><label htmlFor="routine-effective-start" className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Effective start date</label><input id="routine-effective-start" type="date" value={form.effectiveStartDate} onChange={(e) => handleFormChange('effectiveStartDate', e.target.value)} className="w-full min-h-11 px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none" /></div>
+            <div><label htmlFor="routine-effective-end" className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Effective end date</label><input id="routine-effective-end" type="date" value={form.effectiveEndDate} onChange={(e) => handleFormChange('effectiveEndDate', e.target.value)} className="w-full min-h-11 px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none" /></div>
           </div>
 
           <div className="pt-3 flex justify-end space-x-2">

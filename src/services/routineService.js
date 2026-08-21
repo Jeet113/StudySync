@@ -1,4 +1,4 @@
-import { storageService } from './storageService';
+import { storageService } from './storageService.js';
 
 const COURSE_COLORS_KEY = 'studysync_course_colors';
 
@@ -44,8 +44,13 @@ export const routineService = {
     const routines = routineService.getAll();
     const newRoutine = {
       id: `rt-${Date.now()}`,
+      source: 'manual',
+      importId: null,
+      manuallyEdited: false,
+      createdAt: new Date().toISOString(),
       ...routineData,
-      color
+      color,
+      updatedAt: new Date().toISOString()
     };
     routines.push(newRoutine);
     routineService.saveAll(routines);
@@ -59,7 +64,15 @@ export const routineService = {
       if (updatedData.courseId && updatedData.color) {
         routineService.setCourseColor(updatedData.courseId, updatedData.color);
       }
-      routines[index] = { ...routines[index], ...updatedData };
+      const existing = routines[index];
+      routines[index] = {
+        ...existing,
+        ...updatedData,
+        teacherName: updatedData.teacherName || updatedData.faculty || existing.teacherName || existing.faculty || '',
+        faculty: updatedData.teacherName || updatedData.faculty || existing.faculty || existing.teacherName || '',
+        manuallyEdited: existing.source === 'ocr-import' ? true : Boolean(existing.manuallyEdited),
+        updatedAt: new Date().toISOString()
+      };
       routineService.saveAll(routines);
       return routines[index];
     }
@@ -79,18 +92,21 @@ export const routineService = {
     const conflicts = [];
 
     const toMinutes = (timeStr) => {
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(timeStr || ''))) return null;
       const [h, m] = timeStr.split(':').map(Number);
       return h * 60 + m;
     };
 
     const startMinutes = toMinutes(routineToTest.startTime);
     const endMinutes = toMinutes(routineToTest.endTime);
+    if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes) return [];
 
     routines.forEach(existing => {
       if (excludeId && existing.id === excludeId) return;
       if (existing.dayOfWeek === routineToTest.dayOfWeek) {
         const exStart = toMinutes(existing.startTime);
         const exEnd = toMinutes(existing.endTime);
+        if (exStart === null || exEnd === null) return;
 
         // Check time overlap condition
         if ((startMinutes < exEnd) && (endMinutes > exStart)) {
@@ -105,8 +121,10 @@ export const routineService = {
   // Get today's classes sorted chronologically
   getTodayClasses: (dayName) => {
     const routines = routineService.getAll();
+    const date = new Date().toISOString().split('T')[0];
     return routines
       .filter(r => r.dayOfWeek.toLowerCase() === dayName.toLowerCase())
+      .filter(r => (!r.effectiveStartDate || r.effectiveStartDate <= date) && (!r.effectiveEndDate || r.effectiveEndDate >= date))
       .sort((a, b) => a.startTime.localeCompare(b.startTime));
   }
 };

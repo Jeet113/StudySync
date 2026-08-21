@@ -120,7 +120,11 @@ export const DashboardPage = () => {
 
   // Key metrics calculation
   const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-  const todayClasses = routines.filter(r => r.dayOfWeek.toLowerCase() === todayName.toLowerCase());
+  const todayDate = new Date().toISOString().split('T')[0];
+  const todayClasses = routines
+    .filter(r => r.dayOfWeek.toLowerCase() === todayName.toLowerCase())
+    .filter(r => (!r.effectiveStartDate || r.effectiveStartDate <= todayDate) && (!r.effectiveEndDate || r.effectiveEndDate >= todayDate))
+    .sort((left, right) => left.startTime.localeCompare(right.startTime));
 
   const attendanceRisks = courses.filter(c => c.missedClasses >= Math.floor(c.credit || 3));
   const upcomingAssessments = assessments.filter(a => a.date >= new Date().toISOString().split('T')[0]);

@@ -4,7 +4,7 @@
  */
 
 const STORAGE_VERSION_KEY = 'studysync_storage_version';
-const CURRENT_VERSION = '2.2.0';
+const CURRENT_VERSION = '2.3.0';
 
 const combineDateTime = (date, time) => {
   if (!date || !time) return null;
@@ -81,6 +81,27 @@ const migrateAssessments = () => {
   localStorage.setItem('studysync_tasks', JSON.stringify(tasks));
 };
 
+const migrateRoutineData = () => {
+  const raw = localStorage.getItem('studysync_routines');
+  if (!raw) return;
+  const routines = JSON.parse(raw);
+  if (!Array.isArray(routines)) return;
+  const migrated = routines.map(routine => ({
+    ...routine,
+    teacherName: routine.teacherName || routine.faculty || '',
+    courseType: routine.courseType || (routine.classType === 'lecture' ? 'theory' : routine.classType) || 'theory',
+    group: routine.group || '',
+    section: routine.section || '',
+    effectiveStartDate: routine.effectiveStartDate || '',
+    effectiveEndDate: routine.effectiveEndDate || '',
+    source: routine.source || 'manual',
+    importId: routine.importId || null,
+    manuallyEdited: Boolean(routine.manuallyEdited)
+  }));
+  localStorage.setItem('studysync_routines', JSON.stringify(migrated));
+  if (!localStorage.getItem('studysync_routine_imports')) localStorage.setItem('studysync_routine_imports', JSON.stringify([]));
+};
+
 export const storageMigrations = {
   runMigrations: () => {
     try {
@@ -128,6 +149,7 @@ export const storageMigrations = {
       // 4. Normalize assessment scheduling without deleting legacy fields.
       if (currentStoredVersion !== CURRENT_VERSION) {
         migrateAssessments();
+        migrateRoutineData();
       }
 
       localStorage.setItem(STORAGE_VERSION_KEY, CURRENT_VERSION);
