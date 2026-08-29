@@ -1,10 +1,8 @@
-/**
- * Storage Schema Migrations for StudySync
- * Ensures safe migration for sidebar customization, fixed BDT currency, and routine calendar archival.
- */
+import { createOrderedClassSlots } from './tuitionUtils.js';
+import { STANDARD_ACCOUNTS, normalizeAccountId, normalizeCategory, calculateAccountBalances } from './expenseUtils.js';
 
 const STORAGE_VERSION_KEY = 'studysync_storage_version';
-const CURRENT_VERSION = '2.3.0';
+const CURRENT_VERSION = '2.4.0';
 
 const combineDateTime = (date, time) => {
   if (!date || !time) return null;
@@ -102,6 +100,99 @@ const migrateRoutineData = () => {
   if (!localStorage.getItem('studysync_routine_imports')) localStorage.setItem('studysync_routine_imports', JSON.stringify([]));
 };
 
+const migrateTuitionData = () => {
+  const raw = localStorage.getItem('studysync_tuitions');
+  if (!raw) return;
+  let tuitions = [];
+  try {
+    tuitions = JSON.parse(raw);
+  } catch (e) {
+    return;
+  }
+  if (!Array.isArray(tuitions)) return;
+
+  const currentMonth = new Date().toISOString().slice(0, 7);
+
+  const migrated = tuitions.map(student => {
+    const planned = Math.max(1, parseInt(student.monthlyPlannedClasses || student.monthlyClasses || 12, 10));
+    const salary = Math.max(0, parseFloat(student.monthlySalary) || 8000);
+    const activeMonth = student.activeMonth || currentMonth;
+    const lastPaidDate = student.lastPaidDate || student.expectedPaymentDate || null;
+    const notes = Array.isArray(student.notes) ? student.notes : [];
+    const monthHistory = Array.isArray(student.monthHistory) ? student.monthHistory : [];
+
+    // If student already has valid classSlots, ensure length matches planned
+    let classSlots = student.classSlots;
+    if (!Array.isArray(classSlots) || classSlots.length === 0) {
+      // Migrate from legacy logs
+      const legacyLogs = Array.isArray(student.logs) ? [...student.logs] : [];
+      // Sort legacy logs by date ascending
+      legacyLogs.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+      
+      const seedSlots = legacyLogs.map((log, index) => ({
+        id: log.id || `slot-${index + 1}-${Date.now()}`,
+        order: index + 1,
+        date: log.date || null,
+        completed: Boolean(log.date)
+      }));
+
+      classSlots = createOrderedClassSlots(planned, seedSlots);
+    } else {
+      classSlots = createOrderedClassSlots(planned, classSlots);
+    }
+
+    return {
+      ...student,
+      monthlyPlannedClasses: planned,
+      monthlyClasses: planned,
+      monthlySalary: salary,
+      activeMonth,
+      lastPaidDate,
+      classSlots,
+      notes,
+      monthHistory,
+      currency: 'BDT'
+    };
+  });
+
+  localStorage.setItem('studysync_tuitions', JSON.stringify(migrated));
+};
+
+const migrateExpenseData = () => {
+  const raw = localStorage.getItem('studysync_expenses');
+  if (!raw) return;
+  let expenses = {};
+  try {
+    expenses = JSON.parse(raw);
+  } catch (e) {
+    return;
+  }
+  if (!expenses || typeof expenses !== 'object') return;
+
+  const budgetLimit = Math.max(0, parseFloat(expenses.budgetLimit) || 12000);
+  const dueBorrowRecords = Array.isArray(expenses.dueBorrowRecords) ? expenses.dueBorrowRecords : [];
+
+  // Normalize transactions
+  const transactions = (expenses.transactions || []).map(tx => ({
+    ...tx,
+    accountId: normalizeAccountId(tx.accountId),
+    category: normalizeCategory(tx.category, tx.type),
+    amount: Math.max(0, parseFloat(tx.amount) || 0)
+  }));
+
+  // Reconcile standard 4 accounts with balances
+  const accounts = calculateAccountBalances(expenses.accounts || STANDARD_ACCOUNTS, transactions);
+
+  const migrated = {
+    budgetLimit,
+    accounts,
+    transactions,
+    dueBorrowRecords
+  };
+
+  localStorage.setItem('studysync_expenses', JSON.stringify(migrated));
+};
+
 export const storageMigrations = {
   runMigrations: () => {
     try {
@@ -146,10 +237,12 @@ export const storageMigrations = {
         localStorage.setItem('studysync_archived_routine_events', JSON.stringify([]));
       }
 
-      // 4. Normalize assessment scheduling without deleting legacy fields.
+      // 4. Normalize assessments & routines
       if (currentStoredVersion !== CURRENT_VERSION) {
         migrateAssessments();
         migrateRoutineData();
+        migrateTuitionData();
+        migrateExpenseData();
       }
 
       localStorage.setItem(STORAGE_VERSION_KEY, CURRENT_VERSION);
@@ -160,3 +253,4 @@ export const storageMigrations = {
 };
 
 export default storageMigrations;
+

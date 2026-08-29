@@ -221,6 +221,7 @@ export const QuickAddModal = ({ isOpen, onClose }) => {
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Amount (৳ BDT)</label>
                   <input
                     type="number"
+                    min="1"
                     value={txForm.amount}
                     onChange={(e) => setTxForm({ ...txForm, amount: e.target.value })}
                     placeholder="500"
@@ -232,11 +233,50 @@ export const QuickAddModal = ({ isOpen, onClose }) => {
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Transaction Type</label>
                   <select
                     value={txForm.type}
-                    onChange={(e) => setTxForm({ ...txForm, type: e.target.value })}
+                    onChange={(e) => setTxForm({ ...txForm, type: e.target.value, category: e.target.value === 'income' ? 'Tuition Income' : 'Food' })}
                     className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
                   >
-                    <option value="expense">Expense</option>
-                    <option value="income">Income</option>
+                    <option value="expense">Expense (-)</option>
+                    <option value="income">Income (+)</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Account Source</label>
+                  <select
+                    value={txForm.accountId}
+                    onChange={(e) => setTxForm({ ...txForm, accountId: e.target.value })}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+                  >
+                    <option value="acc-cash">Physical Wallet Cash</option>
+                    <option value="acc-mobile">Mobile Banking</option>
+                    <option value="acc-bank">Bank Account</option>
+                    <option value="acc-card">Credit/Debit Card</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Category</label>
+                  <select
+                    value={txForm.category}
+                    onChange={(e) => setTxForm({ ...txForm, category: e.target.value })}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+                  >
+                    {txForm.type === 'income' ? (
+                      <>
+                        <option value="Tuition Income">Tuition Income</option>
+                        <option value="Other">Other</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="Food">Food</option>
+                        <option value="Academic Materials">Academic Materials</option>
+                        <option value="Fees">Fees</option>
+                        <option value="Internet & Bills">Internet & Bills</option>
+                        <option value="Transportation">Transportation</option>
+                        <option value="Other">Other</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </div>

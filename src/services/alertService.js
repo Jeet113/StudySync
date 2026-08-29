@@ -130,21 +130,24 @@ export const alertService = {
 
     // 3. Expense Budget Limit alerts
     const summary = expenseService.getFinancialSummary();
-    if (summary.budgetUsedPercentage >= 85) {
+    const usage = summary.budgetUsagePercentage !== undefined ? summary.budgetUsagePercentage : (summary.budgetUsedPercentage || 0);
+    const spent = summary.monthlySpent !== undefined ? summary.monthlySpent : (summary.monthlyExpense || 0);
+
+    if (summary.isOverBudget || summary.isNearLimit || usage >= 85) {
       const id = `alert-budget-warning`;
       alerts.push({
         id,
         source: 'expenses',
         module: 'expenses',
-        title: `Monthly Budget Limit Warning`,
+        title: summary.isOverBudget ? `Monthly Budget Limit Exceeded!` : `Monthly Budget Limit Warning`,
         course: 'Personal Expenses',
         date: 'Current Month',
-        remainingTime: `${summary.budgetUsedPercentage}% Budget Spent`,
+        remainingTime: `${usage}% Budget Spent`,
         type: 'Expense Alert',
         priority: 'high',
         category: 'Finance',
         actionPath: '/expenses',
-        message: `You have spent ৳${summary.monthlyExpense} out of ৳${summary.budgetLimit} monthly budget limit!`,
+        message: `You have spent ৳${spent} out of ৳${summary.budgetLimit} monthly budget limit!`,
         dismissible: true
       });
     }

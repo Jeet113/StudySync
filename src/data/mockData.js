@@ -284,7 +284,7 @@ export const initialAssessments = [
   {
     id: "ev-4",
     courseId: "CSE-315",
-    courseTitle: "Operating Systems",
+    courseTitle: "Software Engineering & Agile",
     title: "Semester Mid-Term Examination",
     type: "examination",
     date: "2026-08-12",
@@ -359,26 +359,40 @@ export const initialTuitionStudents = [
     studentName: "Aaraf Rahman",
     subject: "Physics & Mathematics",
     classGrade: "Class 10 (SSC Candidate)",
+    academicLevel: "Class 10 (SSC Candidate)",
     guardianContact: "+880 1711-987654 (Mr. Rahman)",
+    monthlyPlannedClasses: 12,
     monthlyClasses: 12,
-    completedClasses: 9,
-    monthlySalary: 8000, // 8,000 BDT
+    monthlySalary: 8000,
     currency: "BDT",
     startDate: "2026-01-01",
-    expectedPaymentDate: "2026-08-05",
-    paymentStatus: "pending", // paid, pending, overdue
+    lastPaidDate: "2026-07-25",
+    paymentStatus: "pending",
     cardColor: "#4F46E5",
     description: "Teaches 3 days a week (Sun, Tue, Thu) 5:00 PM - 6:30 PM. Focus on Board Exam question solving.",
-    logs: [
-      { id: "tl-1", date: "2026-07-02", duration: "1.5 hrs", topic: "Kinematics & Newton's Laws", status: "completed", notes: "Solved 15 creative questions." },
-      { id: "tl-2", date: "2026-07-05", duration: "1.5 hrs", topic: "Work, Power & Energy", status: "completed", notes: "Formula drill completed." },
-      { id: "tl-3", date: "2026-07-07", duration: "1.5 hrs", topic: "Gravitation & Vector Calculus", status: "completed", notes: "Good progress." },
-      { id: "tl-4", date: "2026-07-09", duration: "1.5 hrs", topic: "General Math: Quadratic Equations", status: "completed", notes: "Homework given." },
-      { id: "tl-5", date: "2026-07-12", duration: "1.5 hrs", topic: "Higher Math: Coordinate Geometry", status: "completed", notes: "Class test taken (scored 18/20)." },
-      { id: "tl-6", date: "2026-07-14", duration: "1.5 hrs", topic: "Light Reflection & Lenses", status: "completed", notes: "Ray diagrams drawn." },
-      { id: "tl-7", date: "2026-07-16", duration: "1.5 hrs", topic: "Current Electricity & Circuit Problems", status: "completed", notes: "Equivalent resistance practice." },
-      { id: "tl-8", date: "2026-07-19", duration: "1.5 hrs", topic: "Higher Math: Trigonometric Ratios", status: "completed", notes: "Covered 7.1 to 7.3." },
-      { id: "tl-9", date: "2026-07-21", duration: "1.5 hrs", topic: "SSC Model Test Paper 1 Review", status: "completed", notes: "Clarified doubts." }
+    activeMonth: "2026-08",
+    notes: [
+      {
+        id: "tn-1",
+        content: "Need to review previous board exam questions for Vector & Calculus.",
+        createdAt: "2026-07-15T14:30:00.000Z",
+        updatedAt: "2026-07-15T14:30:00.000Z"
+      }
+    ],
+    monthHistory: [],
+    classSlots: [
+      { id: "slot-1", order: 1, date: "2026-08-02", completed: true },
+      { id: "slot-2", order: 2, date: "2026-08-04", completed: true },
+      { id: "slot-3", order: 3, date: "2026-08-06", completed: true },
+      { id: "slot-4", order: 4, date: "2026-08-09", completed: true },
+      { id: "slot-5", order: 5, date: "2026-08-11", completed: true },
+      { id: "slot-6", order: 6, date: "2026-08-13", completed: true },
+      { id: "slot-7", order: 7, date: "2026-08-16", completed: true },
+      { id: "slot-8", order: 8, date: "2026-08-18", completed: true },
+      { id: "slot-9", order: 9, date: "2026-08-20", completed: true },
+      { id: "slot-10", order: 10, date: null, completed: false },
+      { id: "slot-11", order: 11, date: null, completed: false },
+      { id: "slot-12", order: 12, date: null, completed: false }
     ]
   },
   {
@@ -386,43 +400,85 @@ export const initialTuitionStudents = [
     studentName: "Nusrat Jahan",
     subject: "ICT & Chemistry",
     classGrade: "HSC 1st Year",
+    academicLevel: "HSC 1st Year",
     guardianContact: "+880 1819-123456 (Mrs. Jahan)",
+    monthlyPlannedClasses: 10,
     monthlyClasses: 10,
-    completedClasses: 10,
-    monthlySalary: 7500, // 7,500 BDT
+    monthlySalary: 7500,
     currency: "BDT",
     startDate: "2026-02-15",
-    expectedPaymentDate: "2026-07-25",
+    lastPaidDate: "2026-08-01",
     paymentStatus: "paid",
     cardColor: "#10B981",
     description: "Teaches 2 days a week (Mon, Wed) 6:45 PM - 8:15 PM.",
-    logs: [
-      { id: "tl-10", date: "2026-07-01", duration: "1.5 hrs", topic: "HTML & Web Design Basics", status: "completed", notes: "Practiced forms and tables." },
-      { id: "tl-11", date: "2026-07-06", duration: "1.5 hrs", topic: "C Programming Control Structures", status: "completed", notes: "Looping concepts." },
-      { id: "tl-12", date: "2026-07-08", duration: "1.5 hrs", topic: "Organic Chemistry: Hydrocarbons", status: "completed", notes: "Alkanes & Alkenes." },
-      { id: "tl-13", date: "2026-07-13", duration: "1.5 hrs", topic: "C Programming Arrays & Strings", status: "completed", notes: "Code exercises." },
-      { id: "tl-14", date: "2026-07-15", duration: "1.5 hrs", topic: "Chemical Bonding & Hybridization", status: "completed", notes: "sp2 sp3 orbital concepts." },
-      { id: "tl-15", date: "2026-07-20", duration: "1.5 hrs", topic: "ICT Chapter 4 Full Exam", status: "completed", notes: "Scored 45/50!" },
-      { id: "tl-16", date: "2026-07-22", duration: "1.5 hrs", topic: "Electrochemistry & Nernst Equation", status: "completed", notes: "Nernst equation numericals." }
+    activeMonth: "2026-08",
+    notes: [
+      {
+        id: "tn-2",
+        content: "Scored 45/50 in ICT Chapter 4 Full Exam! Continue practicing C programming arrays.",
+        createdAt: "2026-07-22T17:00:00.000Z",
+        updatedAt: "2026-07-22T17:00:00.000Z"
+      }
+    ],
+    monthHistory: [],
+    classSlots: [
+      { id: "slot-21", order: 1, date: "2026-08-03", completed: true },
+      { id: "slot-22", order: 2, date: "2026-08-05", completed: true },
+      { id: "slot-23", order: 3, date: "2026-08-10", completed: true },
+      { id: "slot-24", order: 4, date: "2026-08-12", completed: true },
+      { id: "slot-25", order: 5, date: "2026-08-17", completed: true },
+      { id: "slot-26", order: 6, date: "2026-08-19", completed: true },
+      { id: "slot-27", order: 7, date: "2026-08-24", completed: true },
+      { id: "slot-28", order: 8, date: null, completed: false },
+      { id: "slot-29", order: 9, date: null, completed: false },
+      { id: "slot-30", order: 10, date: null, completed: false }
     ]
   }
 ];
 
 export const initialExpenses = {
-  budgetLimit: 12000, // Monthly budget limit in BDT
+  budgetLimit: 12000,
   accounts: [
-    { id: "acc-1", name: "bKash Mobile Banking", type: "mobile_banking", balance: 4250, accountNo: "017***9876", color: "#EC4899" },
-    { id: "acc-2", name: "Dutch-Bangla Bank (DBBL)", type: "bank", balance: 14800, accountNo: "210.***.432", color: "#3B82F6" },
-    { id: "acc-3", name: "Physical Wallet Cash", type: "cash", balance: 2150, accountNo: "Cash in Hand", color: "#10B981" },
-    { id: "acc-4", name: "Student Visa Card", type: "card", balance: 3500, accountNo: "**** 8892", color: "#8B5CF6" }
+    { id: "acc-mobile", name: "Mobile Banking", type: "mobile_banking", balance: 4250, openingBalance: 0, color: "#EC4899" },
+    { id: "acc-bank", name: "Bank Account", type: "bank", balance: 14800, openingBalance: 15350, color: "#3B82F6" },
+    { id: "acc-cash", name: "Physical Wallet Cash", type: "cash", balance: 2150, openingBalance: 5980, color: "#10B981" },
+    { id: "acc-card", name: "Credit/Debit Card", type: "card", balance: 3500, openingBalance: 3500, color: "#8B5CF6" }
   ],
   transactions: [
-    { id: "tx-1", type: "income", title: "Tuition Fee Received - Nusrat", amount: 7500, category: "Tuition Income", accountId: "acc-1", date: "2026-07-25", notes: "Paid via bKash." },
-    { id: "tx-2", type: "expense", title: "Semester Mess Dining Bill", amount: 3200, category: "Food & Mess", accountId: "acc-3", date: "2026-07-20", notes: "July Mess bill" },
-    { id: "tx-3", type: "expense", title: "Database Systems Textbook Photocopy", amount: 450, category: "Academic Books", accountId: "acc-3", date: "2026-07-18", notes: "Campus library print" },
-    { id: "tx-4", type: "expense", title: "Mobile Data Pack 30GB", amount: 399, category: "Internet & Bills", accountId: "acc-1", date: "2026-07-15", notes: "Robi Student Pack" },
-    { id: "tx-5", type: "expense", title: "Train Ticket Home (Chittagong-Dhaka)", amount: 550, category: "Travel & Bus", accountId: "acc-2", date: "2026-07-10", notes: "Shohoz online ticket" },
-    { id: "tx-6", type: "expense", title: "Cafeteria Snacks & Coffee", amount: 180, category: "Food & Mess", accountId: "acc-3", date: "2026-07-23", notes: "Evening study session" },
+    { id: "tx-1", type: "income", title: "Tuition Fee Received - Nusrat", amount: 7500, category: "Tuition Income", accountId: "acc-mobile", date: "2026-08-01", notes: "Paid via bKash." },
+    { id: "tx-2", type: "expense", title: "Semester Mess Dining Bill", amount: 3200, category: "Food", accountId: "acc-cash", date: "2026-08-05", notes: "Mess meal deposit" },
+    { id: "tx-3", type: "expense", title: "Database Systems Textbook Photocopy", amount: 450, category: "Academic Materials", accountId: "acc-cash", date: "2026-08-10", notes: "Campus library print" },
+    { id: "tx-4", type: "expense", title: "Mobile Data Pack 30GB", amount: 399, category: "Internet & Bills", accountId: "acc-mobile", date: "2026-08-12", notes: "Monthly student package" },
+    { id: "tx-5", type: "expense", title: "Train Ticket Home (Chittagong-Dhaka)", amount: 550, category: "Transportation", accountId: "acc-bank", date: "2026-08-15", notes: "Intercity ticket" },
+    { id: "tx-6", type: "expense", title: "Cafeteria Snacks & Coffee", amount: 180, category: "Food", accountId: "acc-cash", date: "2026-08-20", notes: "Study group snacks" }
+  ],
+  dueBorrowRecords: [
+    {
+      id: "due-1",
+      title: "Mess Manager (Extra Utility Bill)",
+      direction: "i_owe",
+      amount: 600,
+      settledAmount: 0,
+      dueDate: "2026-09-05",
+      note: "Shared generator fuel cost for hall",
+      status: "open",
+      createdAt: "2026-08-20T10:00:00.000Z",
+      updatedAt: "2026-08-20T10:00:00.000Z",
+      settlementTransactionIds: []
+    },
+    {
+      id: "due-2",
+      title: "Tanvir (Algorithm Book Share)",
+      direction: "owed_to_me",
+      amount: 450,
+      settledAmount: 0,
+      dueDate: "2026-09-02",
+      note: "Half share for Cormen CLRS book",
+      status: "open",
+      createdAt: "2026-08-22T11:30:00.000Z",
+      updatedAt: "2026-08-22T11:30:00.000Z",
+      settlementTransactionIds: []
+    }
   ]
 };
 
@@ -548,7 +604,7 @@ export const initialMedications = [
     color: "amber",
     createdAt: "2026-07-20T08:00:00.000Z",
     updatedAt: "2026-07-25T08:30:00.000Z",
-  },
+  }
 ];
 
 export const initialTasks = [

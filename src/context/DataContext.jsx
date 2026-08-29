@@ -255,10 +255,75 @@ export const DataProvider = ({ children }) => {
     showToast('Tuition student added!');
   };
 
+  const updateTuitionStudent = (id, data) => {
+    const updated = tuitionService.updateStudent(id, data);
+    refreshData();
+    showToast(updated ? 'Tuition student updated!' : 'Tuition student not found.', updated ? 'success' : 'warning');
+    return updated;
+  };
+
+  const deleteTuitionStudent = (id) => {
+    tuitionService.deleteStudent(id);
+    refreshData();
+    showToast('Tuition student removed.');
+  };
+
+  const updateTuitionClassDate = (studentId, slotOrder, date) => {
+    tuitionService.updateClassSlotDate(studentId, slotOrder, date);
+    refreshData();
+    showToast('Class date updated.');
+  };
+
+  const startNewTuitionMonth = (studentId, targetNewMonth = null) => {
+    tuitionService.startNewMonth(studentId, targetNewMonth);
+    refreshData();
+    showToast('New tuition month started.');
+  };
+
+  const addTuitionNote = (studentId, content) => {
+    const created = tuitionService.addStudentNote(studentId, content);
+    refreshData();
+    if (created) {
+      showToast('Tuition note added.');
+    } else {
+      showToast('Tuition note cannot be empty.', 'warning');
+    }
+    return created;
+  };
+
+  const updateTuitionNote = (studentId, noteId, content) => {
+    const updated = tuitionService.updateStudentNote(studentId, noteId, content);
+    refreshData();
+    if (updated) {
+      showToast('Tuition note updated.');
+    } else {
+      showToast('Unable to update tuition note.', 'warning');
+    }
+    return updated;
+  };
+
+  const deleteTuitionNote = (studentId, noteId) => {
+    const deleted = tuitionService.deleteStudentNote(studentId, noteId);
+    refreshData();
+    if (deleted) {
+      showToast('Tuition note deleted.');
+    } else {
+      showToast('No tuition note found to delete.', 'warning');
+    }
+    return deleted;
+  };
+
   const logTuitionClass = (studentId, sessionData) => {
-    tuitionService.logClassSession(studentId, sessionData);
+    const logged = tuitionService.logClassSession?.(studentId, sessionData);
+    if (logged === undefined || logged === null) {
+      const fallback = tuitionService.updateClassSlotDate(studentId, sessionData?.slotOrder ?? 1, sessionData?.date ?? new Date().toISOString().slice(0, 10));
+      refreshData();
+      showToast(fallback ? 'Tuition class logged successfully!' : 'Tuition session update failed.', fallback ? 'success' : 'warning');
+      return fallback;
+    }
     refreshData();
     showToast('Tuition class logged successfully!');
+    return logged;
   };
 
   // --- Expense Handlers ---
@@ -268,10 +333,52 @@ export const DataProvider = ({ children }) => {
     showToast(txData.type === 'income' ? 'Income logged!' : 'Expense recorded!', txData.type === 'income' ? 'success' : 'warning');
   };
 
+  const updateTransaction = (id, updatedData) => {
+    expenseService.updateTransaction(id, updatedData);
+    refreshData();
+    showToast('Transaction updated.');
+  };
+
   const deleteTransaction = (id) => {
     expenseService.deleteTransaction(id);
     refreshData();
     showToast('Transaction removed.');
+  };
+
+  const updateBudgetLimit = (newLimit) => {
+    expenseService.updateBudgetLimit(newLimit);
+    refreshData();
+    showToast('Budget updated.');
+  };
+
+  const addDueBorrowRecord = (recordData) => {
+    expenseService.addDueBorrowRecord(recordData);
+    refreshData();
+    showToast('Due/Borrow record added.');
+  };
+
+  const updateDueBorrowRecord = (id, updatedData) => {
+    expenseService.updateDueBorrowRecord(id, updatedData);
+    refreshData();
+    showToast('Due/Borrow record updated.');
+  };
+
+  const deleteDueBorrowRecord = (id) => {
+    expenseService.deleteDueBorrowRecord(id);
+    refreshData();
+    showToast('Due/Borrow record removed.');
+  };
+
+  const settleDueBorrowRecord = (id, settlementOptions = {}) => {
+    expenseService.settleDueBorrowRecord(id, settlementOptions);
+    refreshData();
+    showToast('Due/Borrow record settled.');
+  };
+
+  const reopenDueBorrowRecord = (id) => {
+    expenseService.reopenDueBorrowRecord(id);
+    refreshData();
+    showToast('Due/Borrow record reopened.');
   };
 
   // --- Shortcuts Handlers ---
@@ -522,10 +629,24 @@ export const DataProvider = ({ children }) => {
       deleteSemester,
       // Tuition actions
       addTuitionStudent,
+      updateTuitionStudent,
+      deleteTuitionStudent,
+      updateTuitionClassDate,
+      startNewTuitionMonth,
+      addTuitionNote,
+      updateTuitionNote,
+      deleteTuitionNote,
       logTuitionClass,
       // Expense actions
       addTransaction,
+      updateTransaction,
       deleteTransaction,
+      updateBudgetLimit,
+      addDueBorrowRecord,
+      updateDueBorrowRecord,
+      deleteDueBorrowRecord,
+      settleDueBorrowRecord,
+      reopenDueBorrowRecord,
       // Shortcut actions
       addShortcut,
       togglePinShortcut,

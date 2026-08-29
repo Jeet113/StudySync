@@ -1,4 +1,9 @@
 import { storageService } from './storageService';
+import {
+  createOrderedClassSlots,
+  calculateTuitionProgress,
+  createMonthSnapshot
+} from '../utils/tuitionUtils';
 
 export const tuitionService = {
   getStudents: () => {
@@ -11,17 +16,38 @@ export const tuitionService = {
 
   addStudent: (studentData) => {
     const students = tuitionService.getStudents();
+    const planned = Math.max(1, parseInt(studentData.monthlyPlannedClasses || studentData.monthlyClasses || 12, 10));
+    const now = new Date().toISOString();
+    const currentMonth = new Date().toISOString().slice(0, 7);
+
     const newStudent = {
       id: `tu-${Date.now()}`,
-      completedClasses: 0,
-      monthlyClasses: 12,
-      monthlySalary: 8000,
-      currency: "BDT",
-      paymentStatus: "pending",
-      cardColor: "#4F46E5",
-      logs: [],
+      studentName: studentData.studentName || '',
+      subject: studentData.subject || '',
+      classGrade: studentData.classGrade || studentData.academicLevel || '',
+      academicLevel: studentData.academicLevel || studentData.classGrade || '',
+      guardianContact: studentData.guardianContact || '',
+      monthlyPlannedClasses: planned,
+      monthlyClasses: planned,
+      monthlySalary: Math.max(0, parseFloat(studentData.monthlySalary) || 8000),
+      currency: 'BDT',
+      lastPaidDate: studentData.lastPaidDate || null,
+      startDate: studentData.startDate || currentMonth + '-01',
+      paymentStatus: studentData.paymentStatus || 'pending',
+      cardColor: studentData.cardColor || '#4F46E5',
+      description: studentData.description || '',
+      activeMonth: studentData.activeMonth || currentMonth,
+      classSlots: createOrderedClassSlots(planned),
+      notes: [],
+      monthHistory: [],
+      createdAt: now,
+      updatedAt: now,
       ...studentData
     };
+
+    // Ensure classSlots matches planned
+    newStudent.classSlots = createOrderedClassSlots(planned, newStudent.classSlots || []);
+
     students.push(newStudent);
     tuitionService.saveStudents(students);
     return newStudent;
@@ -31,7 +57,25 @@ export const tuitionService = {
     const students = tuitionService.getStudents();
     const index = students.findIndex(s => s.id === id);
     if (index !== -1) {
-      students[index] = { ...students[index], ...updatedData };
+      const current = students[index];
+      const newPlanned = updatedData.monthlyPlannedClasses !== undefined
+        ? Math.max(1, parseInt(updatedData.monthlyPlannedClasses, 10))
+        : current.monthlyPlannedClasses || 12;
+
+      let classSlots = current.classSlots || [];
+      if (newPlanned !== current.monthlyPlannedClasses) {
+        classSlots = createOrderedClassSlots(newPlanned, classSlots);
+      }
+
+      students[index] = {
+        ...current,
+        ...updatedData,
+        monthlyPlannedClasses: newPlanned,
+        monthlyClasses: newPlanned,
+        classSlots,
+        updatedAt: new Date().toISOString()
+      };
+
       tuitionService.saveStudents(students);
       return students[index];
     }
@@ -47,45 +91,37 @@ export const tuitionService = {
 
   // Calculate per-class earnings and salary progress
   calculateStudentMetrics: (student) => {
-    const planned = Number(student.monthlyClasses || 12);
-    const salary = Number(student.monthlySalary || 0);
-    const completed = Number(student.completedClasses || (student.logs?.length || 0));
-
-    const perClassRate = planned > 0 ? (salary / planned) : 0;
-    const earnedAmount = Math.round(completed * perClassRate);
-    const remainingAmount = Math.max(0, salary - earnedAmount);
-    const remainingClasses = Math.max(0, planned - completed);
-    const classProgressPercent = planned > 0 ? Math.min(100, Math.round((completed / planned) * 100)) : 0;
-
-    return {
-      planned,
-      completed,
-      remainingClasses,
-      salary,
-      perClassRate: Math.round(perClassRate),
-      earnedAmount,
-      remainingAmount,
-      classProgressPercent
-    };
+    return calculateTuitionProgress(student);
   },
 
-  // Log a conducted class session
-  logClassSession: (studentId, sessionData) => {
+  // Update a single ordered class slot date (or clear it)
+  updateClassSlotDate: (studentId, slotOrder, date) => {
     const students = tuitionService.getStudents();
     const index = students.findIndex(s => s.id === studentId);
     if (index !== -1) {
       const student = students[index];
-      const newLog = {
-        id: `tl-${Date.now()}`,
-        date: sessionData.date || new Date().toISOString().split('T')[0],
-        duration: sessionData.duration || "1.5 hrs",
-        topic: sessionData.topic || "General Discussion",
-        status: sessionData.status || "completed",
-        notes: sessionData.notes || ""
-      };
-      if (!student.logs) student.logs = [];
-      student.logs.unshift(newLog);
-      student.completedClasses = student.logs.filter(l => l.status === 'completed').length;
+      const slots = Array.isArray(student.classSlots) ? [...student.classSlots] : [];
+      const slotIndex = slots.findIndex(s => s.order === slotOrder);
+
+      const cleanDate = date && String(date).trim() !== '' ? String(date).trim() : null;
+
+      if (slotIndex !== -1) {
+        slots[slotIndex] = {
+          ...slots[slotIndex],
+          date: cleanDate,
+          completed: Boolean(cleanDate)
+        };
+      } else {
+        slots.push({
+          id: `slot-${slotOrder}-${Date.now()}`,
+          order: slotOrder,
+          date: cleanDate,
+          completed: Boolean(cleanDate)
+        });
+      }
+
+      student.classSlots = slots;
+      student.updatedAt = new Date().toISOString();
       students[index] = student;
       tuitionService.saveStudents(students);
       return student;
@@ -93,7 +129,137 @@ export const tuitionService = {
     return null;
   },
 
-  // Get aggregated tuition financial analytics
+  // Start new month: archive current progress snapshot and reset slots
+  startNewMonth: (studentId, targetNewMonth = null) => {
+    const students = tuitionService.getStudents();
+    const index = students.findIndex(s => s.id === studentId);
+    if (index !== -1) {
+      const student = students[index];
+      const snapshot = createMonthSnapshot(student);
+
+      if (!student.monthHistory) student.monthHistory = [];
+
+      // Check if this month is already in history to prevent duplicate snapshot
+      const existingSnapIdx = student.monthHistory.findIndex(
+        h => h.activeMonth === snapshot.activeMonth || (h.month === snapshot.month && h.year === snapshot.year)
+      );
+
+      if (existingSnapIdx !== -1) {
+        student.monthHistory[existingSnapIdx] = snapshot;
+      } else {
+        student.monthHistory.unshift(snapshot);
+      }
+
+      // Calculate next active month (e.g. "2026-09")
+      let nextMonth = targetNewMonth;
+      if (!nextMonth) {
+        const currentActive = student.activeMonth || new Date().toISOString().slice(0, 7);
+        const [yearStr, monthStr] = currentActive.split('-');
+        let y = parseInt(yearStr, 10);
+        let m = parseInt(monthStr, 10) + 1;
+        if (m > 12) {
+          m = 1;
+          y += 1;
+        }
+        nextMonth = `${y}-${String(m).padStart(2, '0')}`;
+      }
+
+      student.activeMonth = nextMonth;
+      student.classSlots = createOrderedClassSlots(student.monthlyPlannedClasses || 12);
+      student.updatedAt = new Date().toISOString();
+
+      students[index] = student;
+      tuitionService.saveStudents(students);
+      return student;
+    }
+    return null;
+  },
+
+  // Notes CRUD
+  addStudentNote: (studentId, content) => {
+    if (!content || !content.trim()) return null;
+    const students = tuitionService.getStudents();
+    const index = students.findIndex(s => s.id === studentId);
+    if (index !== -1) {
+      const student = students[index];
+      if (!student.notes) student.notes = [];
+      const newNote = {
+        id: `tn-${Date.now()}`,
+        content: content.trim(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      student.notes.unshift(newNote);
+      student.updatedAt = new Date().toISOString();
+      students[index] = student;
+      tuitionService.saveStudents(students);
+      return newNote;
+    }
+    return null;
+  },
+
+  updateStudentNote: (studentId, noteId, content) => {
+    if (!content || !content.trim()) return null;
+    const students = tuitionService.getStudents();
+    const index = students.findIndex(s => s.id === studentId);
+    if (index !== -1) {
+      const student = students[index];
+      if (!student.notes) return null;
+      const noteIdx = student.notes.findIndex(n => n.id === noteId);
+      if (noteIdx !== -1) {
+        student.notes[noteIdx].content = content.trim();
+        student.notes[noteIdx].updatedAt = new Date().toISOString();
+        student.updatedAt = new Date().toISOString();
+        students[index] = student;
+        tuitionService.saveStudents(students);
+        return student.notes[noteIdx];
+      }
+    }
+    return null;
+  },
+
+  deleteStudentNote: (studentId, noteId) => {
+    const students = tuitionService.getStudents();
+    const index = students.findIndex(s => s.id === studentId);
+    if (index !== -1) {
+      const student = students[index];
+      if (!student.notes) return null;
+      student.notes = student.notes.filter(n => n.id !== noteId);
+      student.updatedAt = new Date().toISOString();
+      students[index] = student;
+      tuitionService.saveStudents(students);
+      return student;
+    }
+    return null;
+  },
+
+  // Log a completed session for a student.
+  logClassSession: (studentId, sessionData = {}) => {
+    const students = tuitionService.getStudents();
+    const index = students.findIndex(s => s.id === studentId);
+    if (index === -1) return null;
+
+    const student = students[index];
+    const date = sessionData.date || new Date().toISOString().slice(0, 10);
+    const slotOrder = Number(sessionData.slotOrder ?? 1);
+
+    const updatedStudent = {
+      ...student,
+      classSlots: Array.isArray(student.classSlots) ? student.classSlots.map(slot => {
+        if (slot.order === slotOrder) {
+          return { ...slot, date, completed: true };
+        }
+        return slot;
+      }) : createOrderedClassSlots(student.monthlyPlannedClasses || 12)
+    };
+
+    updatedStudent.updatedAt = new Date().toISOString();
+    students[index] = updatedStudent;
+    tuitionService.saveStudents(students);
+    return updatedStudent;
+  },
+
+  // Aggregated tuition overview
   getAnalytics: () => {
     const students = tuitionService.getStudents();
     let totalExpectedIncome = 0;
@@ -102,10 +268,8 @@ export const tuitionService = {
     let totalCompletedClasses = 0;
     let totalPlannedClasses = 0;
 
-    const studentBreakdown = [];
-
     students.forEach(st => {
-      const metrics = tuitionService.calculateStudentMetrics(st);
+      const metrics = calculateTuitionProgress(st);
       totalExpectedIncome += metrics.salary;
       totalPlannedClasses += metrics.planned;
       totalCompletedClasses += metrics.completed;
@@ -116,19 +280,7 @@ export const tuitionService = {
         totalReceivedIncome += metrics.earnedAmount;
         totalOutstandingIncome += metrics.remainingAmount;
       }
-
-      studentBreakdown.push({
-        name: st.studentName,
-        earned: metrics.earnedAmount,
-        salary: metrics.salary,
-        completed: metrics.completed,
-        planned: metrics.planned
-      });
     });
-
-    const averageValuePerClass = totalCompletedClasses > 0 
-      ? Math.round(totalReceivedIncome / totalCompletedClasses) 
-      : (totalPlannedClasses > 0 ? Math.round(totalExpectedIncome / totalPlannedClasses) : 0);
 
     return {
       totalExpectedIncome,
@@ -136,8 +288,9 @@ export const tuitionService = {
       totalOutstandingIncome,
       totalCompletedClasses,
       totalPlannedClasses,
-      averageValuePerClass,
-      studentBreakdown
+      totalStudents: students.length
     };
   }
 };
+
+export default tuitionService;
